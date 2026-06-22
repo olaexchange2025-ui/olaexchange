@@ -488,21 +488,17 @@ function calculate(){
 
 document.getElementById("refresh-btn").addEventListener("click", fetchRate);
 
-function openChatWithCopiedMessage(message){
-  const link = "https://t.me/" + ADMIN_USERNAME;
-
-  function doOpen(){
-    if (tg && tg.openTelegramLink){
-      tg.openTelegramLink(link);
-    } else {
-      window.open(link, "_blank");
-    }
-  }
+function openChatWithMessage(message){
+  const link = "https://t.me/" + ADMIN_USERNAME + "?text=" + encodeURIComponent(message);
 
   if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(message).then(doOpen).catch(doOpen);
+    navigator.clipboard.writeText(message).catch(() => {});
+  }
+
+  if (tg && tg.openTelegramLink){
+    tg.openTelegramLink(link);
   } else {
-    doOpen();
+    window.open(link, "_blank");
   }
 }
 
@@ -540,9 +536,9 @@ document.getElementById("send-btn").addEventListener("click", () => {
     "Комиссия: 3%\n" +
     "Пользователь просит связаться: " + tgUser;
 
-  openChatWithCopiedMessage(message);
+  openChatWithMessage(message);
 
-  statusEl.textContent = "Сообщение скопировано — вставьте его в открытом чате и отправьте";
+  statusEl.textContent = "Открываем чат с готовым сообщением...";
   statusEl.className = "status ok";
 });
 
@@ -557,9 +553,9 @@ document.getElementById("contact-btn").addEventListener("click", () => {
   const tgUser = "@" + tgUserObj.username;
   const message = "Пользователь " + tgUser + " интересуется другими направлениями обмена / хочет связаться с менеджером.";
 
-  openChatWithCopiedMessage(message);
+  openChatWithMessage(message);
 
-  statusEl.textContent = "Сообщение скопировано — вставьте его в открытом чате и отправьте";
+  statusEl.textContent = "Открываем чат с готовым сообщением...";
   statusEl.className = "status ok";
 });
 
