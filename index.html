@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Обмен USDT / EUR</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&display=swap');
   :root{
     --bg:#E2F23A;
     --surface:#CFE558;
@@ -338,11 +339,36 @@
 <button class="btn btn-secondary" id="contact-btn">Другие направления обмена / связаться с менеджером</button>
 <div class="status" id="status"></div>
 
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 const ADMIN_USERNAME = "ВАШ_TELEGRAM_USERNAME";
+const LEADS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxhR1y_GYB_61c4Jam6TMj-1XkRTpradlFHvkMlWZu4ohLUTfmzBN0li19BW4qN8fJb/exec";
 
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
+
+function logLeadOnOpen(){
+  if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) return;
+  if (!LEADS_SCRIPT_URL || LEADS_SCRIPT_URL.indexOf("ВСТАВЬТЕ") === 0) return;
+
+  const u = tg.initDataUnsafe.user;
+  const payload = {
+    user_id: u.id,
+    username: u.username || "",
+    first_name: u.first_name || "",
+    last_name: u.last_name || "",
+    language_code: u.language_code || "",
+    source: "olá exchange mini app"
+  };
+
+  fetch(LEADS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  }).catch(() => {});
+}
+
+logLeadOnOpen();
 
 const FEE_RATE = 0.03;
 let direction = "usdt-eur";
