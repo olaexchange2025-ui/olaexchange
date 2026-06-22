@@ -154,6 +154,20 @@
     color:var(--text-dim);
     margin:-10px 0 16px 2px;
   }
+  .min-warning{
+    background:#FFFFFF;
+    border:1.5px solid #15150F;
+    border-radius:12px;
+    padding:10px 14px;
+    font-size:13px;
+    font-weight:700;
+    color:#15150F;
+    margin:-6px 0 16px 0;
+  }
+  .input-row.input-error{
+    border-color:#15150F;
+    border-width:2px;
+  }
 
   .arrow-divider{
     display:flex;
@@ -315,8 +329,9 @@
     <span class="unit" id="from-unit">USDT</span>
   </div>
   <div class="min-hint" id="min-hint">Минимальная сумма: 1 500,00 USDT</div>
+  <div class="min-warning" id="min-warning" style="display:none;">⚠ Сумма меньше минимальной — увеличьте её, чтобы продолжить</div>
 
-  <div class="arrow-divider"><span class="dot">↓</span> по курсу, минус комиссия 3%</div>
+  <div class="arrow-divider"><span class="dot">↓</span> по курсу, с учётом комиссии 3%</div>
 
   <div style="display:flex;justify-content:center;margin-bottom:14px;">
     <button class="btn-calc" id="calc-btn">Рассчитать</button>
@@ -329,6 +344,8 @@
     <div class="receipt-row"><span id="r-give-label">Вы отдаёте (USDT)</span><span id="r-give-val">—</span></div>
     <div class="receipt-row"><span id="r-rate-label">Курс USDT/EUR</span><span id="r-rate-val">—</span></div>
     <div class="receipt-row"><span id="r-conv-label">Конвертация USDT/EUR</span><span id="r-conv-val">—</span></div>
+    <div class="receipt-row" id="r-rate2-row" style="display:none;"><span id="r-rate2-label">Курс USDT/EUR</span><span id="r-rate2-val">—</span></div>
+    <div class="receipt-row" id="r-conv2-row" style="display:none;"><span id="r-conv2-label">Конвертация USDT/EUR</span><span id="r-conv2-val">—</span></div>
     <div class="divider"></div>
     <div class="receipt-row"><span>Размер комиссии</span><span id="r-fee-pct">3,00%</span></div>
     <div class="receipt-row"><span id="r-feeamt-label">Комиссия за сделку (EUR)</span><span id="r-feeamt-val">—</span></div>
@@ -357,7 +374,7 @@
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-const ADMIN_USERNAME = "ivan_ola_exchange";
+const ADMIN_USERNAME = "mrvasilkoff";
 const LEADS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwW0Q_QGSUnpcszb9pLsr2zi_l8cy4MPgUA9agf9rjU99IHRUt8NqpT1FR_JKuDeYbN/exec";
 
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -454,6 +471,7 @@ function setMode(modeKey){
   }
 
   refreshRateLine();
+  checkMinAmount();
   calculate();
 }
 
@@ -463,20 +481,50 @@ btnDirEurUsdt.addEventListener("click", () => setMode("eur-usdt"));
 amountInput.addEventListener("input", () => {
   resultEl.textContent = "—";
   feeValEl.textContent = "—";
+  checkMinAmount();
 });
+
+function checkMinAmount(){
+  const amount = parseFloat(amountInput.value) || 0;
+  const minAmount = MODES[mode].min;
+  const inputRow = amountInput.closest(".input-row");
+  const warningEl = document.getElementById("min-warning");
+
+  if (amount > 0 && amount < minAmount){
+    warningEl.style.display = "block";
+    inputRow.classList.add("input-error");
+    return false;
+  } else {
+    warningEl.style.display = "none";
+    inputRow.classList.remove("input-error");
+    return true;
+  }
+}
 
 document.getElementById("calc-btn").addEventListener("click", calculate);
 
 function refreshRateLine(){
   const rate = currentRate();
   const cur = PAIR_LABELS[pair];
-  document.getElementById("rate-label").textContent = "Курс EUR/" + cur;
+  if (pair === "rub"){
+    document.getElementById("rate-label").textContent = "Курс RUB/USDT";
+    if (rate){
+      rateValEl.textContent = fmt(rate) + " RUB";
+    } else {
+      rateValEl.textContent = "—";
+    }
+  } else {
+    document.getElementById("rate-label").textContent = "Курс EUR/" + cur;
+    if (rate){
+      rateValEl.textContent = fmt(rate) + " " + cur;
+    } else {
+      rateValEl.textContent = "—";
+    }
+  }
   if (rate){
-    rateValEl.textContent = fmt(rate) + " " + cur;
     const ts = rateTimestamps[pair];
     rateTimeEl.textContent = ts ? "обновлено " + ts.toLocaleTimeString("ru-RU", {hour:"2-digit", minute:"2-digit"}) : "—";
   } else {
-    rateValEl.textContent = "—";
     rateTimeEl.textContent = "курс не загружен";
   }
 }
@@ -526,6 +574,7 @@ function calculate(){
   const minAmount = MODES[mode].min;
 
   if (amount < minAmount){
+    checkMinAmount();
     statusEl.textContent = "Минимальная сумма для этого направления: " + fmt(minAmount) + " " + fromUnitEl.textContent;
     statusEl.className = "status err";
     resultEl.textContent = "—";
@@ -533,23 +582,39 @@ function calculate(){
     document.getElementById("receipt").style.display = "none";
     return;
   }
+  if (pair === "rub" && !rates.usdt){
+    statusEl.textContent = "Курс USDT/EUR ещё не загружен, попробуйте обновить";
+    statusEl.className = "status err";
+    return;
+  }
   statusEl.textContent = "";
   statusEl.className = "status";
 
-  let gross, net, feeAmount;
-
-  if (direction === "from-eur"){
-    gross = amount / rate;
-  } else {
-    gross = amount * rate;
-  }
-  feeAmount = gross * FEE_RATE;
-  net = gross - feeAmount;
-
-  resultEl.textContent = fmt(net);
   const cur = PAIR_LABELS[pair];
   const fromUnit = direction === "from-eur" ? cur : "EUR";
   const toUnit = direction === "from-eur" ? "EUR" : cur;
+
+  let gross, net, feeAmount;
+  let usdtLeg = null;
+
+  if (pair === "rub"){
+    // RUB -> USDT -> EUR (двухшаговая конвертация, как в основном боте)
+    const usdtAmount = amount / rate;
+    gross = usdtAmount / rates.usdt;
+    feeAmount = gross * FEE_RATE;
+    net = gross - feeAmount;
+    usdtLeg = { usdtAmount: usdtAmount, usdtRate: rates.usdt };
+  } else {
+    if (direction === "from-eur"){
+      gross = amount / rate;
+    } else {
+      gross = amount * rate;
+    }
+    feeAmount = gross * FEE_RATE;
+    net = gross - feeAmount;
+  }
+
+  resultEl.textContent = fmt(net);
   const feeUnit = toUnit;
   feeValEl.textContent = fmt(feeAmount) + " " + feeUnit;
 
@@ -560,10 +625,29 @@ function calculate(){
   });
   document.getElementById("r-give-label").textContent = "Вы отдаёте (" + fromUnit + ")";
   document.getElementById("r-give-val").textContent = fmt(amount);
-  document.getElementById("r-rate-label").textContent = "Курс " + cur + "/EUR";
-  document.getElementById("r-rate-val").textContent = rateFmt;
-  document.getElementById("r-conv-label").textContent = "Конвертация " + fromUnit + "/" + toUnit;
-  document.getElementById("r-conv-val").textContent = fmt(gross);
+
+  if (pair === "rub"){
+    document.getElementById("r-rate-label").textContent = "Курс RUB/USDT";
+    document.getElementById("r-rate-val").textContent = rateFmt;
+    document.getElementById("r-conv-label").textContent = "Конвертация RUB/USDT";
+    document.getElementById("r-conv-val").textContent = fmt(usdtLeg.usdtAmount);
+
+    document.getElementById("r-rate2-label").textContent = "Курс USDT/EUR";
+    document.getElementById("r-rate2-val").textContent = Number(usdtLeg.usdtRate).toLocaleString("ru-RU", { minimumFractionDigits: 5, maximumFractionDigits: 5 });
+    document.getElementById("r-conv2-label").textContent = "Конвертация USDT/EUR";
+    document.getElementById("r-conv2-val").textContent = fmt(gross);
+    document.getElementById("r-rate2-row").style.display = "flex";
+    document.getElementById("r-conv2-row").style.display = "flex";
+  } else {
+    document.getElementById("r-rate-label").textContent = "Курс " + cur + "/EUR";
+    document.getElementById("r-rate-val").textContent = rateFmt;
+    document.getElementById("r-conv-label").textContent = "Конвертация " + fromUnit + "/" + toUnit;
+    document.getElementById("r-conv-val").textContent = fmt(gross);
+
+    document.getElementById("r-rate2-row").style.display = "none";
+    document.getElementById("r-conv2-row").style.display = "none";
+  }
+
   document.getElementById("r-feeamt-label").textContent = "Комиссия за сделку (" + toUnit + ")";
   document.getElementById("r-feeamt-val").textContent = fmt(feeAmount);
   document.getElementById("r-total-label").textContent = "Итого Вы получаете (" + toUnit + ")";
@@ -620,11 +704,15 @@ document.getElementById("send-btn").addEventListener("click", () => {
   const tgUser = "@" + tgUserObj.username;
   const cur = PAIR_LABELS[pair];
 
+  const rateLines = pair === "rub"
+    ? "Курс RUB/USDT: " + fmt(rates.rub) + "\nКурс USDT/EUR: " + Number(rates.usdt).toLocaleString("ru-RU", { minimumFractionDigits: 5, maximumFractionDigits: 5 })
+    : "Курс " + cur + "/EUR: " + fmt(currentRate());
+
   const message =
     "Здравствуйте! Хочу оставить заявку на обмен через olá exchange.\n\n" +
     "Отдаю: " + amount + " " + fromUnit + "\n" +
     "Получаю: ~" + result + " " + toUnit + "\n" +
-    "Курс " + cur + "/EUR: " + fmt(currentRate()) + "\n" +
+    rateLines + "\n" +
     "Комиссия: 3%\n\n" +
     "Мой Telegram: " + tgUser + "\n" +
     "Подскажите, пожалуйста, как нам продолжить.";
