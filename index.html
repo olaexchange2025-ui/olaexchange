@@ -485,6 +485,24 @@ function calculate(){
 
 document.getElementById("refresh-btn").addEventListener("click", fetchRate);
 
+function openChatWithCopiedMessage(message){
+  const link = "https://t.me/" + ADMIN_USERNAME;
+
+  function doOpen(){
+    if (tg && tg.openTelegramLink){
+      tg.openTelegramLink(link);
+    } else {
+      window.open(link, "_blank");
+    }
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(message).then(doOpen).catch(doOpen);
+  } else {
+    doOpen();
+  }
+}
+
 document.getElementById("send-btn").addEventListener("click", () => {
   const amount = parseFloat(amountInput.value) || 0;
 
@@ -519,15 +537,9 @@ document.getElementById("send-btn").addEventListener("click", () => {
     "Комиссия: 3%\n" +
     "Пользователь просит связаться: " + tgUser;
 
-  const link = "https://t.me/" + ADMIN_USERNAME + "?text=" + encodeURIComponent(message);
+  openChatWithCopiedMessage(message);
 
-  if (tg && tg.openTelegramLink){
-    tg.openTelegramLink(link);
-  } else {
-    window.open(link, "_blank");
-  }
-
-  statusEl.textContent = "Заявка подготовлена, отправьте сообщение в открытом чате";
+  statusEl.textContent = "Сообщение скопировано — вставьте его в открытом чате и отправьте";
   statusEl.className = "status ok";
 });
 
@@ -541,15 +553,10 @@ document.getElementById("contact-btn").addEventListener("click", () => {
 
   const tgUser = "@" + tgUserObj.username;
   const message = "Пользователь " + tgUser + " интересуется другими направлениями обмена / хочет связаться с менеджером.";
-  const link = "https://t.me/" + ADMIN_USERNAME + "?text=" + encodeURIComponent(message);
 
-  if (tg && tg.openTelegramLink){
-    tg.openTelegramLink(link);
-  } else {
-    window.open(link, "_blank");
-  }
+  openChatWithCopiedMessage(message);
 
-  statusEl.textContent = "Сообщение подготовлено, отправьте его в открытом чате";
+  statusEl.textContent = "Сообщение скопировано — вставьте его в открытом чате и отправьте";
   statusEl.className = "status ok";
 });
 
