@@ -91,8 +91,9 @@
   }
 
   .toggle-3 button{
-    font-size:11px;
-    padding:10px 4px;
+    font-size:9.5px;
+    padding:10px 2px;
+    letter-spacing:-0.02em;
   }
 
   .toggle{
@@ -141,6 +142,9 @@
     font-weight:800;
     font-family:inherit;
     min-width:0;
+  }
+  .input-row input.input-pristine{
+    color:rgba(0,0,0,0.35);
   }
   .input-row .unit{
     font-size:14px;
@@ -325,7 +329,7 @@
 
   <span class="field-label" id="from-label">Я хочу отдать</span>
   <div class="input-row">
-    <input type="number" id="amount" inputmode="decimal" placeholder="0" value="1500" min="1500">
+    <input type="number" id="amount" class="input-pristine" inputmode="decimal" placeholder="0" value="1500" min="1500">
     <span class="unit" id="from-unit">USDT</span>
   </div>
   <div class="min-hint" id="min-hint">Минимальная сумма: 1 500,00 USDT</div>
@@ -432,9 +436,9 @@ const btnDirUsdtEur = document.getElementById("dir-usdt-eur");
 const btnDirEurUsdt = document.getElementById("dir-eur-usdt");
 
 const MODES = {
-  "rub-eur":  { pair: "rub",  direction: "from-eur", min: 500000, btn: () => btnDirRubEur },
-  "usdt-eur": { pair: "usdt", direction: "from-eur", min: 1500,   btn: () => btnDirUsdtEur },
-  "eur-usdt": { pair: "usdt", direction: "to-eur",   min: 1500,   btn: () => btnDirEurUsdt }
+  "rub-eur":  { pair: "rub",  direction: "from-eur", min: 500000, max: 50000000, btn: () => btnDirRubEur },
+  "usdt-eur": { pair: "usdt", direction: "from-eur", min: 1500,   max: 1000000,  btn: () => btnDirUsdtEur },
+  "eur-usdt": { pair: "usdt", direction: "to-eur",   min: 1500,   max: 1000000,  btn: () => btnDirEurUsdt }
 };
 
 function fmt(n){
@@ -466,11 +470,11 @@ function setMode(modeKey){
   toLabelEl.textContent = "Я получу";
 
   amountInput.min = cfg.min;
-  document.getElementById("min-hint").textContent = "Минимальная сумма: " + fmt(cfg.min) + " " + fromUnitEl.textContent;
+  amountInput.max = cfg.max;
+  document.getElementById("min-hint").textContent = "Сумма от " + fmt(cfg.min) + " до " + fmt(cfg.max) + " " + fromUnitEl.textContent;
 
-  if ((parseFloat(amountInput.value) || 0) < cfg.min){
-    amountInput.value = cfg.min;
-  }
+  amountInput.value = cfg.min;
+  amountInput.classList.add("input-pristine");
 
   refreshRateLine();
   checkMinAmount();
@@ -480,7 +484,28 @@ function setMode(modeKey){
 btnDirRubEur.addEventListener("click", () => setMode("rub-eur"));
 btnDirUsdtEur.addEventListener("click", () => setMode("usdt-eur"));
 btnDirEurUsdt.addEventListener("click", () => setMode("eur-usdt"));
+amountInput.addEventListener("focus", () => {
+  if (amountInput.classList.contains("input-pristine")){
+    amountInput.value = "";
+  }
+});
+
+amountInput.addEventListener("blur", () => {
+  if (!amountInput.value){
+    amountInput.value = MODES[mode].min;
+    amountInput.classList.add("input-pristine");
+    checkMinAmount();
+  }
+});
+
 amountInput.addEventListener("input", () => {
+  amountInput.classList.remove("input-pristine");
+
+  const maxAmount = MODES[mode].max;
+  if (parseFloat(amountInput.value) > maxAmount){
+    amountInput.value = maxAmount;
+  }
+
   resultEl.textContent = "—";
   feeValEl.textContent = "—";
   checkMinAmount();
@@ -493,6 +518,7 @@ function checkMinAmount(){
   const warningEl = document.getElementById("min-warning");
 
   if (amount > 0 && amount < minAmount){
+    warningEl.textContent = "⚠ Сумма меньше минимальной — увеличьте её, чтобы продолжить";
     warningEl.style.display = "block";
     inputRow.classList.add("input-error");
     return false;
@@ -574,10 +600,20 @@ function calculate(){
   }
   const amount = parseFloat(amountInput.value) || 0;
   const minAmount = MODES[mode].min;
+  const maxAmount = MODES[mode].max;
 
   if (amount < minAmount){
     checkMinAmount();
     statusEl.textContent = "Минимальная сумма для этого направления: " + fmt(minAmount) + " " + fromUnitEl.textContent;
+    statusEl.className = "status err";
+    resultEl.textContent = "—";
+    feeValEl.textContent = "—";
+    document.getElementById("receipt").style.display = "none";
+    return;
+  }
+  if (amount > maxAmount){
+    checkMinAmount();
+    statusEl.textContent = "Максимальная сумма для этого направления: " + fmt(maxAmount) + " " + fromUnitEl.textContent;
     statusEl.className = "status err";
     resultEl.textContent = "—";
     feeValEl.textContent = "—";
@@ -684,6 +720,11 @@ document.getElementById("send-btn").addEventListener("click", () => {
   }
   if (amount < MODES[mode].min){
     statusEl.textContent = "Минимальная сумма для этого направления: " + fmt(MODES[mode].min) + " " + fromUnitEl.textContent;
+    statusEl.className = "status err";
+    return;
+  }
+  if (amount > MODES[mode].max){
+    statusEl.textContent = "Максимальная сумма для этого направления: " + fmt(MODES[mode].max) + " " + fromUnitEl.textContent;
     statusEl.className = "status err";
     return;
   }
